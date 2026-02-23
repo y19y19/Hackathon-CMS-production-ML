@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triton-server-<name>
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triton-server-<name>
+  template:
+    metadata:
+      labels:
+        app: triton-server-<name>
+    spec:
+      containers:
+        - name: triton-server-<name>
+          image: fastml/triton-torchgeo:25.08-py3-geometric
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              /opt/tritonserver/bin/tritonserver \
+              --model-repository=/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_16_0_0_pre4/external/el9_amd64_gcc13/data/RecoBTag/Combined/data/models/ \
+              --model-repository=/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_16_0_0_pre4/external/el9_amd64_gcc13/data/RecoEgamma/EgammaPhotonProducers/data/models/ \
+              --model-repository=/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_16_0_0_pre4/external/el9_amd64_gcc13/data/RecoTauTag/TrainingFiles/data/DeepTauIdSONIC/ \
+              --model-repository=/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_16_0_0_pre4/external/el9_amd64_gcc13/data/RecoMET/METPUSubtraction/data/models/ \
+              --allow-gpu-metrics=true \
+              --log-verbose=0 \
+              --strict-model-config=false \
+              --exit-timeout-secs=60 \
+              --backend-config=onnxruntime,enable-global-threadpool=1
+          ports:
+            - name: http
+              containerPort: 8000
+            - name: grpc
+              containerPort: 8001
+            - name: metrics
+              containerPort: 8002
+          resources:
+            requests:
+              cpu: 2
+              memory: 8G
+              nvidia.com/gpu: 1
+            limits:
+              cpu: 2
+              memory: 8G
+              nvidia.com/gpu: 1
+          volumeMounts:
+            - name: cvmfs
+              mountPath: /cvmfs
+              mountPropagation: HostToContainer
+      volumes:
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs
+      #affinity:
+      #  nodeAffinity:
+      #    requiredDuringSchedulingIgnoredDuringExecution:
+      #      nodeSelectorTerms:
+      #      - matchExpressions:
+      #        - key: nvidia.com/gpu.product
+      #          operator: In
+      #          values:
+      #          - NVIDIA-A10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: triton-server-<name>
+spec:
+  type: ClusterIP
+  selector:
+    app: triton-server-<name>
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+    - name: grpc
+      port: 8001
+      targetPort: grpc
+    - name: metrics
+      port: 8002
+      targetPort: metrics
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: triton-cms-<name>-ingress-grpc
+  namespace: <namespace>
+  annotations:
+    haproxy-ingress.github.io/cors-enable: "true"
+    haproxy-ingress.github.io/backend-protocol: "h2"
+    haproxy-ingress.github.io/proxy-body-size: "512m"
+    haproxy-ingress.github.io/timeout-client: "5m"
+    haproxy-ingress.github.io/timeout-server: "5m"
+    haproxy-ingress.github.io/timeout-connect: "5m"
+    haproxy-ingress.github.io/timeout-http-request: "5m"
+    haproxy-ingress.github.io/timeout-queue: "1m"
+    haproxy-ingress.github.io/health-check-interval: "30s"
+    haproxy-ingress.github.io/health-check-rise-count: "1"
+spec:
+  ingressClassName: haproxy
+  tls:
+  - hosts:
+      - triton-cms-<name>.nrp-nautilus.io
+  rules:
+  - host: triton-cms-<name>.nrp-nautilus.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: triton-server-<name>
+            port:
+              number: 8001
+        path: /
+        pathType: ImplementationSpecific

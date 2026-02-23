@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cmsrun-job
+spec:
+  parallelism: 1
+  completions: 1
+  template:
+    spec:
+      containers:
+      - name: cmsrun-job
+        image: kondratyevd/sonic-client-cms-miniaod:cmssw_16
+        args:
+          - "--address=triton-server-<name>"
+          - "--port=8001"
+          - "--redir=root://cmsxrootd.fnal.gov/"
+          - "--verboseDiscovery"
+        env:
+          - name: X509_USER_PROXY
+            value: /etc/grid-security-ro/<509file>
+        volumeMounts:
+          - name: cvmfs
+            mountPath: /cvmfs
+            mountPropagation: HostToContainer
+          - name: x509-proxy
+            mountPath: /etc/grid-security-ro
+            readOnly: true
+        resources:
+          requests:
+            memory: "16Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "4"
+      restartPolicy: Never
+      volumes:
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs
+        - name: x509-proxy
+          secret:
+            secretName: x509-proxy-<name>
+            defaultMode: 384
+
+
+  backoffLimit: 0
