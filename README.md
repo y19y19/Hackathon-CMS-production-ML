@@ -4,6 +4,7 @@
 
 ## set-up
 - From any machine providing VOMS certificates, generate a GRID proxy (x509) file
+- Copy the 509file (x509up\_uxxx) to your local machine (where kubectl is installed)
 - Upload the proxy to the Kubernetes cluster as a secret:
 ```bash
 kubectl create secret generic x509-proxy-<name> \
