@@ -20,6 +20,19 @@ or
 ```bash
 kubectl apply -f triton-nrp.yaml
 ```
+- **Remember to clean up**, triton server uses GPU, when you are finished working, take down the deployment
+```bash
+Mac:SONIC ddiaz$ kubectl get deployments -n cms-ml-production
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+triton-server             0/1     1            0           34m
+triton-server-ab          1/1     1            1           3d4h
+triton-server-bhanda25    0/1     1            0           20m
+triton-server-colberte    1/1     1            1           7m56s
+triton-server-ddiaz-mlp   1/1     1            1           7m51s
+Mac:SONIC ddiaz$ kubectl delete deployment triton-server-ddiaz-mlp -n cms-ml-production
+deployment.apps "triton-server-ddiaz-mlp" deleted
+```
+
 
 ## NRP links
 - [nrp.ai](nrp.ai)
